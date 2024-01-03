@@ -81,8 +81,6 @@ void CHUNK_Print(CHUNK chunk) {
     printf("End of Chunk Print\n");
 }
 
-// chunk.c
-#include "chunk.h"
 
 CHUNK_RecordIterator CHUNK_CreateRecordIterator(CHUNK *chunk) {
     CHUNK_RecordIterator iterator;
@@ -95,8 +93,6 @@ CHUNK_RecordIterator CHUNK_CreateRecordIterator(CHUNK *chunk) {
     return iterator;
 }
 
-// chunk.c
-#include "chunk.h"
 
 /* Function to get the next record from the iterator. */
 int CHUNK_GetNextRecord(CHUNK_RecordIterator *iterator, Record* record) {
