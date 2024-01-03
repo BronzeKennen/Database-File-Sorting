@@ -1,5 +1,6 @@
 #ifndef CHUNK_H
 #define CHUNK_H
+#define MAX_RECORDS_PER_BLOCK (BF_BLOCK_SIZE / sizeof(Record))
 
 #include <stdio.h>
 #include <stdlib.h>

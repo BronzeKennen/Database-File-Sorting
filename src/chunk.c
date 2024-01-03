@@ -14,21 +14,38 @@ CHUNK_Iterator CHUNK_CreateIterator(int fileDesc, int blocksInChunk) {
     return iterator;
 }
 
-
 int CHUNK_GetNext(CHUNK_Iterator *iterator, CHUNK *chunk) {
-    if (iterator->current <= iterator->lastBlocksID) {
-        chunk->file_desc = iterator->file_desc;
-        chunk->from_BlockId = iterator->current;
-        chunk->to_BlockId = iterator->current + iterator->blocksInChunk - 1;
-        chunk->recordsInChunk = 0; // Initialize to 0, you need to calculate this based on your logic
-        chunk->blocksInChunk = iterator->blocksInChunk;
+        // Increment the iterator to the next chunk
+    //NEED TO CHECK IF LASTBLOCKID EXCEEDS LAST BLOCK
+    iterator->current += iterator->blocksInChunk;
+    iterator->lastBlocksID += iterator->blocksInChunk;
+    // Assign iterator info to the chunk variable
+    chunk->file_desc = iterator->file_desc;
+    chunk->from_BlockId = iterator->current;
+    chunk->to_BlockId = iterator->current + iterator->blocksInChunk - 1;
 
-        iterator->current += iterator->blocksInChunk;
-        return 0;  // Success
-    } else {
-        return -1;  // No more chunks
+    // Adjust the to_BlockId if it exceeds the lastBlocksID
+    if (chunk->to_BlockId > iterator->lastBlocksID) {
+        chunk->to_BlockId = iterator->lastBlocksID;
     }
+
+    if (iterator->current <= iterator->lastBlocksID) {
+        // If there are more blocks, update lastBlocksID for the next iteration
+        iterator->lastBlocksID = iterator->current + iterator->blocksInChunk - 1;
+    } else {
+        // Reset the iterator for the next chunk
+        iterator->current = 1;
+        iterator->lastBlocksID = iterator->current + iterator->blocksInChunk - 1;
+    }
+
+    // Assign iterator info to the chunk variable
+    chunk->recordsInChunk = (chunk->to_BlockId - chunk->from_BlockId + 1) * MAX_RECORDS_PER_BLOCK;
+    chunk->blocksInChunk = iterator->blocksInChunk;
+    return 0;
 }
+
+
+
 
 int CHUNK_GetIthRecordInChunk(CHUNK* chunk,  int i, Record* record){
      if (i < 0 || i >= chunk->recordsInChunk) {
