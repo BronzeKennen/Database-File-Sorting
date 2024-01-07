@@ -16,10 +16,19 @@ CHUNK_Iterator CHUNK_CreateIterator(int fileDesc, int blocksInChunk) {
 
 int CHUNK_GetNext(CHUNK_Iterator *iterator, CHUNK *chunk) {
         // Increment the iterator to the next chunk
+    int blockNum;
+    BF_GetBlockCounter(iterator->file_desc,&blockNum);
+
     //NEED TO CHECK IF LASTBLOCKID EXCEEDS LAST BLOCK
     iterator->current += iterator->blocksInChunk;
     iterator->lastBlocksID += iterator->blocksInChunk;
     // Assign iterator info to the chunk variable
+    if(iterator->current+1 >= blockNum) {
+        iterator->lastBlocksID = blockNum-1;
+        chunk->to_BlockId = blockNum-1;
+
+    }
+
     chunk->file_desc = iterator->file_desc;
     chunk->from_BlockId = iterator->current;
     chunk->to_BlockId = iterator->current + iterator->blocksInChunk - 1;
@@ -36,6 +45,11 @@ int CHUNK_GetNext(CHUNK_Iterator *iterator, CHUNK *chunk) {
         // Reset the iterator for the next chunk
         iterator->current = 1;
         iterator->lastBlocksID = iterator->current + iterator->blocksInChunk - 1;
+
+        chunk->recordsInChunk = (chunk->to_BlockId - chunk->from_BlockId + 1) * MAX_RECORDS_PER_BLOCK;
+        chunk->blocksInChunk = iterator->blocksInChunk;
+
+        return 1;
     }
 
     // Assign iterator info to the chunk variable
@@ -48,7 +62,7 @@ int CHUNK_GetNext(CHUNK_Iterator *iterator, CHUNK *chunk) {
 
 
 int CHUNK_GetIthRecordInChunk(CHUNK* chunk,  int i, Record* record){
-     if (i < 0 || i >= chunk->recordsInChunk) {
+    if (i < 0 || i >= chunk->recordsInChunk) {
         return -1;  // Invalid position
     }
 
@@ -60,7 +74,7 @@ int CHUNK_GetIthRecordInChunk(CHUNK* chunk,  int i, Record* record){
     // For example, assuming HP_GetRecord is a function to retrieve a record from a heap file
     int file_desc = chunk->file_desc;
     int result = HP_GetRecord(file_desc, blockId, recordPosInBlock, record);
-
+    HP_Unpin(file_desc,blockId);
     return result;  // Return the result of HP_GetRecord
 }
 
@@ -77,7 +91,7 @@ int CHUNK_UpdateIthRecord(CHUNK* chunk,  int i, Record record){
     // For example, assuming HP_UpdateRecord is a function to update a record in a heap file
     int file_desc = chunk->file_desc;
     int result = HP_UpdateRecord(file_desc, blockId, recordPosInBlock, record);
-
+    HP_Unpin(file_desc,blockId);
     return result;  // Return the result of HP_UpdateRecord
 }
 
