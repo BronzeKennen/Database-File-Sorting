@@ -34,25 +34,30 @@ void sort_FileInChunks(int file_desc, int numBlocksInChunk){
 }
 
 void sort_Chunk(CHUNK* chunk){
-     Record* records = (Record*)malloc(chunk->recordsInChunk * sizeof(Record));
-        for (int i = 0; i < chunk->recordsInChunk; i++) {
-            HP_GetRecord(chunk->file_desc, chunk->from_BlockId + i / MAX_RECORDS_PER_BLOCK, i % MAX_RECORDS_PER_BLOCK, &records[i]);
-        }
+    
+    Record* records = (Record*)malloc(chunk->recordsInChunk * sizeof(Record));
+    for (int i = 0; i < chunk->recordsInChunk; i++) {
+        HP_GetRecord(chunk->file_desc, chunk->from_BlockId + i / MAX_RECORDS_PER_BLOCK, i % MAX_RECORDS_PER_BLOCK, &records[i]);
+    }
 
-        // Apply Merge Sort to sort the records within the chunk
-        mergeSort(records, 0, chunk->recordsInChunk - 1);
+    // Apply Merge Sort to sort the records within the chunk
+    mergeSort(records, 0, chunk->recordsInChunk - 1);
 
-        // Write the sorted chunk back to the file
-        for (int i = 0; i < chunk->recordsInChunk; i++) {
-            HP_UpdateRecord(chunk->file_desc, chunk->from_BlockId + i / MAX_RECORDS_PER_BLOCK, i % MAX_RECORDS_PER_BLOCK, records[i]);
-        }
+    // Write the sorted chunk back to the file
+    for (int i = 0; i < chunk->recordsInChunk; i++) {
+        HP_UpdateRecord(chunk->file_desc, chunk->from_BlockId + i / MAX_RECORDS_PER_BLOCK, i % MAX_RECORDS_PER_BLOCK, records[i]);
+        printRecord(records[i]);
+    }
 
-        // Free memory
-        free(records);
+    // Free memory
+    free(records);
 }
 
 int compareRecords(const void* a, const void* b) {
-    return ((Record*)a)->id - ((Record*)b)->id;
+    if(strcmp(((Record*)a)->name,((Record*)b)->name) == 0){
+        return strcmp(((Record*)a)->surname,((Record*)b)->surname);
+    }
+    return strcmp(((Record*)a)->name,((Record*)b)->name);
 }
 
 // Merge function for merging two sorted halves of an array

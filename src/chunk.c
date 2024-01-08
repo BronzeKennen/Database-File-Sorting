@@ -19,7 +19,6 @@ int CHUNK_GetNext(CHUNK_Iterator *iterator, CHUNK *chunk) {
     int blockNum;
     BF_GetBlockCounter(iterator->file_desc,&blockNum);
 
-    //NEED TO CHECK IF LASTBLOCKID EXCEEDS LAST BLOCK
     iterator->current += iterator->blocksInChunk;
     iterator->lastBlocksID += iterator->blocksInChunk;
     // Assign iterator info to the chunk variable
