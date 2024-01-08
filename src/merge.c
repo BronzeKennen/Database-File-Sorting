@@ -12,13 +12,18 @@
 #include <stdbool.h>
 
 void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc) {
+
+    CHUNK_Iterator chunk_iterator = CHUNK_CreateIterator(input_FileDesc, chunkSize);
+    CHUNK chunk;
+
     // Initialize iterators for each input chunk
-    CHUNK_RecordIterator iterators[bWay];
+    CHUNK_RecordIterator rec_iterators[bWay];
     Record records[bWay];
 
     // Create iterators
     for (int i = 0; i < bWay; i++) {
-        // iterators[i] = CHUNK_CreateRecordIterator(/* pass the corresponding CHUNK for the iteration */);
+        CHUNK_GetNext(&chunk_iterator, &chunk);
+        rec_iterators[i] = CHUNK_CreateRecordIterator(&chunk);
     }
 
     // Create a new chunk for the output file
@@ -29,15 +34,24 @@ void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc) {
     newChunk.recordsInChunk = MAX_RECORDS_PER_BLOCK * chunkSize;
     newChunk.blocksInChunk = chunkSize;
 
+    int lastBlockId = HP_GetIdOfLastBlock(input_FileDesc); 
+    printf("Last Block ID = %d\n", lastBlockId);
+    int k = lastBlockId/chunkSize;
+    printf("ChunkSize = %d\n", chunkSize);
+    printf("K = %d\n", k);
+    int newFileChunkSize = k/bWay;
+    printf("New Chunk Num = %d\n", newFileChunkSize);
+
+    // Load the first record from each input chunk
+    for (int i = 0; i < bWay; i++) {
+        if (CHUNK_GetNextRecord(&rec_iterators[i], &records[i]) != 0) {
+            // Handle end of chunk or iteration
+            // You might need to adjust this part based on your logic
+        }
+    }
+
     // Merge logic
     while (true) {
-        // Load the first record from each input chunk
-        for (int i = 0; i < bWay; i++) {
-            if (CHUNK_GetNextRecord(&iterators[i], &records[i]) != 0) {
-                // Handle end of chunk or iteration
-                // You might need to adjust this part based on your logic
-            }
-        }
 
         // Find the smallest record among the loaded records
         int minIndex = -1;
@@ -51,7 +65,7 @@ void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc) {
         CHUNK_UpdateIthRecord(&newChunk, 0, records[minIndex]);
 
         // Check if the current chunk is finished and there is space to load another record
-        if (CHUNK_GetNextRecord(&iterators[minIndex], &records[minIndex]) != 0) {
+        if (CHUNK_GetNextRecord(&rec_iterators[minIndex], &records[minIndex]) != 0) {
             // Handle end of chunk or iteration
             // You might need to adjust this part based on your logic
         }
