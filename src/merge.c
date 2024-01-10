@@ -1,18 +1,11 @@
 #include <merge.h>
 #include <stdio.h>
 #include <stdbool.h>
-
-#include <merge.h>
-#include <stdio.h>
-#include <stdbool.h>
+#include <math.h>
 #include "chunk.h"  // Include the necessary header file for CHUNK operations
 
-#include <merge.h>
-#include <stdio.h>
-#include <stdbool.h>
 
 void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc) {
-
     CHUNK_Iterator chunk_iterator = CHUNK_CreateIterator(input_FileDesc, chunkSize);
     CHUNK chunk;
 
@@ -20,8 +13,16 @@ void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc) {
     CHUNK_RecordIterator rec_iterators[bWay];
     Record records[bWay];
 
+    // Create first chunk and record iterator.
+    chunk.blocksInChunk = chunkSize;
+    chunk.file_desc = input_FileDesc;
+    chunk.from_BlockId = 1;
+    chunk.to_BlockId = chunkSize;
+    chunk.recordsInChunk = MAX_RECORDS_PER_BLOCK * chunkSize;
+    rec_iterators[0] = CHUNK_CreateRecordIterator(&chunk);
+
     // Create iterators
-    for (int i = 0; i < bWay; i++) {
+    for (int i = 1; i < bWay; i++) {
         CHUNK_GetNext(&chunk_iterator, &chunk);
         rec_iterators[i] = CHUNK_CreateRecordIterator(&chunk);
     }
@@ -34,25 +35,21 @@ void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc) {
     newChunk.recordsInChunk = MAX_RECORDS_PER_BLOCK * chunkSize;
     newChunk.blocksInChunk = chunkSize;
 
-    int lastBlockId = HP_GetIdOfLastBlock(input_FileDesc); 
-    printf("Last Block ID = %d\n", lastBlockId);
-    int k = lastBlockId/chunkSize;
-    printf("ChunkSize = %d\n", chunkSize);
-    printf("K = %d\n", k);
-    int newFileChunkSize = k/bWay;
-    printf("New Chunk Num = %d\n", newFileChunkSize);
+    int totalBlocks = HP_GetIdOfLastBlock(input_FileDesc) - 1; 
+    int totalChunks = (int)ceil((double)totalBlocks / chunkSize); // Return the result round-up so we don't miss any chunks.
+    int newFileChunkNum = (int)ceil((double)totalChunks / bWay);
+    int newFileChunkSize = chunkSize * bWay;
 
     // Load the first record from each input chunk
     for (int i = 0; i < bWay; i++) {
         if (CHUNK_GetNextRecord(&rec_iterators[i], &records[i]) != 0) {
-            // Handle end of chunk or iteration
-            // You might need to adjust this part based on your logic
+            printf("Failed to get record\n");
+            return;
         }
     }
 
     // Merge logic
-    while (true) {
-
+    while(true) {
         // Find the smallest record among the loaded records
         int minIndex = -1;
         for (int i = 0; i < bWay; i++) {
@@ -60,6 +57,7 @@ void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc) {
                 minIndex = i;
             }
         }
+        // minIndex is now the smallest record.
 
         // Update the new chunk with the smallest record
         CHUNK_UpdateIthRecord(&newChunk, 0, records[minIndex]);

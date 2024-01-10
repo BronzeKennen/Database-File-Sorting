@@ -8,51 +8,34 @@ CHUNK_Iterator CHUNK_CreateIterator(int fileDesc, int blocksInChunk) {
     CHUNK_Iterator iterator;
     iterator.file_desc = fileDesc;
     iterator.current = 1;  // Assuming we start from block 1
-    iterator.lastBlocksID = iterator.current + blocksInChunk - 1;  // Corrected value
+    iterator.lastBlocksID = blocksInChunk;  // Corrected value
     iterator.blocksInChunk = blocksInChunk;
 
     return iterator;
 }
 
 int CHUNK_GetNext(CHUNK_Iterator *iterator, CHUNK *chunk) {
-        // Increment the iterator to the next chunk
-    int blockNum;
-    BF_GetBlockCounter(iterator->file_desc,&blockNum);
+    int blockNum = HP_GetIdOfLastBlock(iterator->file_desc);
 
-    iterator->current += iterator->blocksInChunk;
-    iterator->lastBlocksID += iterator->blocksInChunk;
-    // Assign iterator info to the chunk variable
-    if(iterator->current+1 >= blockNum) {
-        iterator->lastBlocksID = blockNum-1;
-        chunk->to_BlockId = blockNum-1;
-
+    iterator->current += iterator->blocksInChunk; // Increment iterator      
+    iterator->lastBlocksID += iterator->blocksInChunk; 
+    if(iterator->current > blockNum) {
+        return -1;
     }
-
+    if(iterator->lastBlocksID >= blockNum) {
+        iterator->lastBlocksID = blockNum;
+        chunk->to_BlockId = blockNum;
+        
+    }
+    iterator->blocksInChunk = iterator->lastBlocksID - iterator->current + 1;
+    
+    // Assign iterator info to the chunk variable
     chunk->file_desc = iterator->file_desc;
     chunk->from_BlockId = iterator->current;
-    chunk->to_BlockId = iterator->current + iterator->blocksInChunk - 1;
-
-    // Adjust the to_BlockId if it exceeds the lastBlocksID
-    if (chunk->to_BlockId > iterator->lastBlocksID) {
-        chunk->to_BlockId = iterator->lastBlocksID;
-    }
-
-    if (iterator->current <= iterator->lastBlocksID) {
-        // If there are more blocks, update lastBlocksID for the next iteration
-        iterator->lastBlocksID = iterator->current + iterator->blocksInChunk - 1;
-    } else {
-        // Reset the iterator for the next chunk
-        iterator->current = 1;
-        iterator->lastBlocksID = iterator->current + iterator->blocksInChunk - 1;
-
-        chunk->recordsInChunk = (chunk->to_BlockId - chunk->from_BlockId + 1) * MAX_RECORDS_PER_BLOCK;
-        chunk->blocksInChunk = iterator->blocksInChunk;
-
-        return 1;
-    }
+    chunk->to_BlockId = iterator->lastBlocksID;
 
     // Assign iterator info to the chunk variable
-    chunk->recordsInChunk = (chunk->to_BlockId - chunk->from_BlockId + 1) * MAX_RECORDS_PER_BLOCK;
+    chunk->recordsInChunk = ((chunk->to_BlockId - chunk->from_BlockId) * MAX_RECORDS_PER_BLOCK) + HP_GetRecordCounter(iterator->file_desc, iterator->lastBlocksID);
     chunk->blocksInChunk = iterator->blocksInChunk;
     return 0;
 }
@@ -127,7 +110,7 @@ CHUNK_RecordIterator CHUNK_CreateRecordIterator(CHUNK *chunk) {
 /* Function to get the next record from the iterator. */
 int CHUNK_GetNextRecord(CHUNK_RecordIterator *iterator, Record* record) {
     // Check if the cursor has reached the end of the current block
-    if (iterator->cursor >= MAX_RECORDS_PER_BLOCK) {
+    if (iterator->cursor > MAX_RECORDS_PER_BLOCK) {
         // Move to the next block
         iterator->currentBlockId++;
         iterator->cursor = 0;
