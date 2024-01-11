@@ -11,12 +11,16 @@
 
 void mergeSort(Record* arr, int left, int right);
 
+int compareRecords(const void* a, const void* b) {
+    if(strcmp(((Record*)a)->name,((Record*)b)->name) == 0){
+        return strcmp(((Record*)a)->surname,((Record*)b)->surname);
+    }
+    return strcmp(((Record*)a)->name,((Record*)b)->name);
+}
+
 bool shouldSwap(Record* rec1, Record* rec2) {
     // Compare records based on the 'id' field
-    if (rec1->id > rec2->id) {
-        return true;
-    }
-
+    if(compareRecords(rec1,rec2) > 0) return true;
     return false;
 }
 
@@ -53,12 +57,6 @@ void sort_Chunk(CHUNK* chunk){
     free(records);
 }
 
-int compareRecords(const void* a, const void* b) {
-    if(strcmp(((Record*)a)->name,((Record*)b)->name) == 0){
-        return strcmp(((Record*)a)->surname,((Record*)b)->surname);
-    }
-    return strcmp(((Record*)a)->name,((Record*)b)->name);
-}
 
 // Merge function for merging two sorted halves of an array
 void mergeFunc(Record* arr, int left, int mid, int right) {
