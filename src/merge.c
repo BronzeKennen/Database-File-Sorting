@@ -1,4 +1,4 @@
-#include <merge.h>
+#include "merge.h"
 #include <stdio.h>
 #include <stdbool.h>
 #include <math.h>
@@ -6,11 +6,18 @@
 
 
 void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc) {
+    int totalBlocks = HP_GetIdOfLastBlock(input_FileDesc); // We skip first block(HP_info) but we start from 0 so it balances out.
+    int totalChunks = (int)ceil((double)totalBlocks / chunkSize); // Return the result round-up so we don't miss any chunks.
+    int newFileChunkNum = (int)ceil((double)totalChunks / bWay);
+    int newFileChunkSize = chunkSize * bWay;
+    int totalRecords = 0;
+
+
     CHUNK_Iterator chunk_iterator = CHUNK_CreateIterator(input_FileDesc, chunkSize);
     CHUNK chunk;
 
     // Initialize iterators for each input chunk
-    CHUNK_RecordIterator rec_iterators[bWay];
+    CHUNK_RecordIterator rec_iterators[totalChunks];
     Record records[bWay];
 
     // Create first chunk and record iterator.
@@ -20,76 +27,74 @@ void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc) {
     chunk.to_BlockId = chunkSize;
     chunk.recordsInChunk = MAX_RECORDS_PER_BLOCK * chunkSize;
     rec_iterators[0] = CHUNK_CreateRecordIterator(&chunk);
+    totalRecords += chunk.recordsInChunk;
+
 
     // Create iterators
-    int totalBlocks = HP_GetIdOfLastBlock(input_FileDesc) - 1; 
-    int totalChunks = (int)ceil((double)totalBlocks / chunkSize); // Return the result round-up so we don't miss any chunks.
-    int newFileChunkNum = (int)ceil((double)totalChunks / bWay);
-    int newFileChunkSize = chunkSize * bWay;
-    for (int i = 1; i < bWay; i++) {
-        CHUNK_GetNext(&chunk_iterator, &chunk);
-        rec_iterators[i] = CHUNK_CreateRecordIterator(&chunk);
-    }
-
-    // Create a new chunk for the output file
-    CHUNK newChunk;
-    newChunk.file_desc = output_FileDesc;
-    newChunk.from_BlockId = 1;  // Starting block for the new chunk
-    newChunk.to_BlockId = newFileChunkSize;  // Assuming each chunk has 'newFileChunkSize' blocks
-    newChunk.recordsInChunk = MAX_RECORDS_PER_BLOCK * newFileChunkSize;
-    newChunk.blocksInChunk = newFileChunkSize;
-
-
-    // Load the first record from each input chunk
-    for (int i = 0; i < bWay; i++) {
-        if (CHUNK_GetNextRecord(&rec_iterators[i], &records[i]) != 0) {
-            printf("Failed to get record\n");
+    for (int i = 1; i < totalChunks; i++) {
+        if (CHUNK_GetNext(&chunk_iterator, &chunk) != 0) {
+            printf("Error retrieving chunk!\n");
             return;
-        }
+        };
+        rec_iterators[i] = CHUNK_CreateRecordIterator(&chunk);
+        totalRecords += chunk.recordsInChunk;
     }
 
     // Merge logic
-    for(int k = 0; k  < newFileChunkNum; k++) {
-        printf("%d\n",newFileChunkNum);
-        // Find the smallest record among the loaded records
-        int minIndex = -1;
-        for (int i = 0; i < bWay; i++) {
-            if(records[i].id == -1) continue;
-            if (minIndex == -1 || shouldSwap(&records[i], &records[minIndex])) {
-                minIndex = i;
+    int insertedRecords = 0;
+    for(int k = 0; k < newFileChunkNum; k++) {
+        printf("New chunk\n");
+        for(int j = 0; j < newFileChunkSize * MAX_RECORDS_PER_BLOCK; j++) {
+            if(insertedRecords == totalRecords) {
+                return;
+            }
+            printf("Current record: %d\n", insertedRecords);
+            if(j == 0) { // Load the new chunks for bway merge.
+                for (int i = 0; i < bWay; i++) {
+                    if(i + (k*bWay) >= totalChunks) {
+                        printf("Exceeded chunk number!\n");
+                        Record dummy;
+                        dummy.id = -1;
+                        records[i] = dummy;
+                        continue;
+                    }
+                    if (CHUNK_GetNextRecord(&rec_iterators[i + (k*bWay)], &records[i]) != 0) {
+                        printf("Failed to get record.\n");
+                        return;
+                    }
+                }
+            }
+            // Find the smallest record among the loaded records
+            int minIndex = -1;
+            for (int i = 0; i < bWay; i++) {
+                if(records[i].id == -1) continue;
+                if (minIndex == -1 || shouldSwap(&records[i], &records[minIndex])) {
+                    minIndex = i;
+                }            
+            }
+            printf("Getting record from position %d which is iterator %d\n", minIndex, (minIndex + (k*bWay)));
+
+            // Insert entry in new file
+            printf("Trying to insert record with id = %d\n", records[minIndex].id);
+            if(HP_InsertEntry(output_FileDesc,records[minIndex]) == -1) {
+                printf("Error inserting entry!\n");
+                return;
+            }
+            printf("Inserted record!\n");
+            insertedRecords++;
+
+
+            // Check if the current chunk is finished and there is space to load another record
+            if (CHUNK_GetNextRecord(&rec_iterators[minIndex + (k*bWay)], &records[minIndex]) != 0) {
+                printf("Couldn't retrieve record. Dummy inserted.\n");
+                Record dummy;
+                dummy.id = -1;
+                records[minIndex] = dummy;
             }
         }
-        // minIndex is now the smallest record.
-
-        // Update the new chunk with the smallest record
-        HP_InsertEntry(output_FileDesc,records[minIndex]);
-        // CHUNK_UpdateIthRecord(&newChunk, 0, records[minIndex]);
-
-        // Check if the current chunk is finished and there is space to load another record
-        if (CHUNK_GetNextRecord(&rec_iterators[minIndex], &records[minIndex]) != 0) {
-            Record dummy;
-            dummy.id = -1;
-            records[minIndex] = dummy;
-            // Handle end of chunk or iteration
-            // You might need to adjust this part based on your logic
-        }
-
-        // You might need to adjust the logic here based on your requirements
-
-        // Write the sorted chunk back to the file
-        for (int i = 0; i < newChunk.recordsInChunk; i++) {
-            // Use CHUNK_UpdateIthRecord to update the records in the corresponding chunk
-            // CHUNK_UpdateIthRecord(&newChunk, i, records[i]);
-        }
     }
-
-    for(int i =0; i < totalBlocks; i++) {
+    for(int i = 0 ; i < totalBlocks; i++) {
         //TEMP SOLUTION
-        HP_Unpin(input_FileDesc,0);
-    }
-    // Cleanup resources (you might need additional cleanup logic here)
-    for (int i = 0; i < bWay; i++) {
-        // Cleanup each iterator
-        // CHUNK_CloseRecordIterator(&iterators[i]);
+        HP_Unpin(input_FileDesc,i);
     }
 }

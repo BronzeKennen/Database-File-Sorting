@@ -110,7 +110,7 @@ CHUNK_RecordIterator CHUNK_CreateRecordIterator(CHUNK *chunk) {
 /* Function to get the next record from the iterator. */
 int CHUNK_GetNextRecord(CHUNK_RecordIterator *iterator, Record* record) {
     // Check if the cursor has reached the end of the current block
-    if (iterator->cursor > MAX_RECORDS_PER_BLOCK) {
+    if (iterator->cursor > MAX_RECORDS_PER_BLOCK - 1) {
         // Move to the next block
         iterator->currentBlockId++;
         iterator->cursor = 0;
