@@ -46,7 +46,7 @@ void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc) {
         printf("New chunk\n");
         for(int j = 0; j < newFileChunkSize * MAX_RECORDS_PER_BLOCK; j++) {
             if(insertedRecords == totalRecords) {
-                return;
+                break;
             }
             printf("Current record: %d\n", insertedRecords);
             if(j == 0) { // Load the new chunks for bway merge.
@@ -93,8 +93,12 @@ void merge(int input_FileDesc, int chunkSize, int bWay, int output_FileDesc) {
             }
         }
     }
-    for(int i = 0 ; i < totalBlocks; i++) {
+    for(int i = 0 ; i <= HP_GetIdOfLastBlock(input_FileDesc); i++) {
         //TEMP SOLUTION
         HP_Unpin(input_FileDesc,i);
+    }
+    for(int i = 0 ; i <= HP_GetIdOfLastBlock(output_FileDesc); i++) {
+        //TEMP SOLUTION
+         HP_PrintBlockEntries(output_FileDesc , i);
     }
 }
