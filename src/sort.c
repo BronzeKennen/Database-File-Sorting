@@ -13,14 +13,17 @@ void mergeSort(Record* arr, int left, int right);
 
 int compareRecords(const void* a, const void* b) {
     if(strcmp(((Record*)a)->name,((Record*)b)->name) == 0){
-        return strcmp(((Record*)a)->surname,((Record*)b)->surname);
+        if (strcmp(((Record*)a)->surname,((Record*)b)->surname) == 0) {
+            return ((Record*)a)->id - ((Record*)b)->id;
+        } else {
+            return strcmp(((Record*)a)->surname,((Record*)b)->surname);
+        };
     }
     return strcmp(((Record*)a)->name,((Record*)b)->name);
 }
 
 bool shouldSwap(Record* rec1, Record* rec2) {
-    // Compare records based on the 'id' field
-    if(compareRecords(rec1,rec2) > 0) return true;
+    if(compareRecords(rec1,rec2) < 0) return true;
     return false;
 }
 
@@ -30,9 +33,21 @@ void sort_FileInChunks(int file_desc, int numBlocksInChunk){
     CHUNK_Iterator iterator = CHUNK_CreateIterator(file_desc, numBlocksInChunk);
     CHUNK chunk;
 
+    chunk.blocksInChunk = numBlocksInChunk;
+    chunk.file_desc = file_desc;
+    chunk.from_BlockId = 1;
+    chunk.to_BlockId = numBlocksInChunk;
+    chunk.recordsInChunk = MAX_RECORDS_PER_BLOCK * numBlocksInChunk;
+    sort_Chunk(&chunk);
+    for(int i = 1; i <= chunk.to_BlockId; i++) {
+        HP_Unpin(file_desc,i);
+    }
     // Iterate through chunks
     while (CHUNK_GetNext(&iterator, &chunk) == 0) {
         sort_Chunk(&chunk);
+        for(int i = chunk.from_BlockId; i <= chunk.to_BlockId; i++) {
+            HP_Unpin(file_desc,i);
+        }
     }
 
 }
@@ -50,7 +65,7 @@ void sort_Chunk(CHUNK* chunk){
     // Write the sorted chunk back to the file
     for (int i = 0; i < chunk->recordsInChunk; i++) {
         HP_UpdateRecord(chunk->file_desc, chunk->from_BlockId + i / MAX_RECORDS_PER_BLOCK, i % MAX_RECORDS_PER_BLOCK, records[i]);
-        printRecord(records[i]);
+        // printRecord(records[i]);
     }
 
     // Free memory
