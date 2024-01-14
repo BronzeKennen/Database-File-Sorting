@@ -37,8 +37,9 @@ void sort_FileInChunks(int file_desc, int numBlocksInChunk){
     chunk.file_desc = file_desc;
     chunk.from_BlockId = 1;
     chunk.to_BlockId = numBlocksInChunk;
-    chunk.recordsInChunk = MAX_RECORDS_PER_BLOCK * numBlocksInChunk;
+    chunk.recordsInChunk = ((chunk.to_BlockId - chunk.from_BlockId) * MAX_RECORDS_PER_BLOCK) + HP_GetRecordCounter(file_desc, chunk.to_BlockId);
     sort_Chunk(&chunk);
+    
     for(int i = 1; i <= chunk.to_BlockId; i++) {
         HP_Unpin(file_desc,i);
     }
@@ -52,7 +53,7 @@ void sort_FileInChunks(int file_desc, int numBlocksInChunk){
 
 }
 
-void sort_Chunk(CHUNK* chunk){
+void sort_Chunk(CHUNK* chunk) {
     
     Record* records = (Record*)malloc(chunk->recordsInChunk * sizeof(Record));
     for (int i = 0; i < chunk->recordsInChunk; i++) {
@@ -65,7 +66,6 @@ void sort_Chunk(CHUNK* chunk){
     // Write the sorted chunk back to the file
     for (int i = 0; i < chunk->recordsInChunk; i++) {
         HP_UpdateRecord(chunk->file_desc, chunk->from_BlockId + i / MAX_RECORDS_PER_BLOCK, i % MAX_RECORDS_PER_BLOCK, records[i]);
-        // printRecord(records[i]);
     }
 
     // Free memory
